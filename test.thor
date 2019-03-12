@@ -1,6 +1,7 @@
 require 'register_client'
 require 'in_memory_data_store'
 require 'fileutils'
+require 'spreadsheet_architect'
 
 
 class Test < Thor
@@ -17,12 +18,14 @@ class Test < Thor
     
     puts "You supplied the file #{file}"
     
-    registers_client = RegistersClient::RegisterClient.new(nil, RegistersClient::InMemoryDataStore.new(nil), nil)
+    registers_client = RegistersClient::RegisterClient.new(nil, RegistersClient::InMemoryDataStore.new({page_size: 5000}), nil)
+    fields = registers_client.get_register_definition.item.value['fields']
+    user_items = registers_client.get_items.select {|i| i.value[fields.first]}
     FileUtils.mkdir_p('build/items')
-    registers_client.get_items.each do |i|
+    user_items.each do |i|
       File.write("build/items/#{i.hash}.json", i.value.to_json)  
+      File.write("build/items/#{i.hash}.csv", SpreadsheetArchitect.to_csv(headers: fields, data: [ fields.map{ |f| i.value[f]} ]))
     end    
-
   end
 end
 
