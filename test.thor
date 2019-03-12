@@ -1,8 +1,6 @@
 require 'register_client'
 require 'in_memory_data_store'
 require 'fileutils'
-require 'spreadsheet_architect'
-
 
 class Test < Thor
   def self.file
@@ -24,7 +22,10 @@ class Test < Thor
     FileUtils.mkdir_p('build/items')
     user_items.each do |i|
       File.write("build/items/#{i.hash}.json", i.value.to_json)  
-      File.write("build/items/#{i.hash}.csv", SpreadsheetArchitect.to_csv(headers: fields, data: [ fields.map{ |f| i.value[f]} ]))
+      CSV.open("build/items/#{i.hash}.csv", "wb") do |csv|
+        csv << fields
+        csv << fields.map{|f| i.value[f]}
+      end
     end    
   end
 end
