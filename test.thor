@@ -16,7 +16,7 @@ module RecordFormatters
         record.item.value
       ]
      }
-   }
+    }
   end
 
   def self.record_csv_header(fields)
@@ -45,6 +45,7 @@ class Test < Thor
     generate_item_files(fields, registers_client.get_items)
     generate_entry_files(registers_client.get_entries)
     generate_record_files(fields, registers_client.get_records)
+    generate_record_list(fields, registers_client.get_records)
   end
   
   private
@@ -97,7 +98,18 @@ end
         end
       end
   end
-  
+
+  def generate_record_list(fields, records)
+    # N.B. Records JSON expects keyed hash rather than array hence .reduce(&:merge)
+    File.write('build/records/index.json', records.map{|r| RecordFormatters.record_hash(r)}.reduce(&:merge).to_json)
+    CSV.open('build/records/index.csv', 'wb' ) do |csv|
+      csv << RecordFormatters.record_csv_header(fields)
+      records.each do |r| 
+        csv <<  RecordFormatters.record_csv_row(fields, r)
+      end
+    end
+  end
+
 end
 
 class RegistersClient::RegisterClient
