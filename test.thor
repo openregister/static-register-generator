@@ -65,6 +65,7 @@ class Test < Thor
     generate_item_files(fields, registers_client.get_items)
     generate_entry_files(registers_client.get_entries)
     generate_entry_list(registers_client.get_entries)
+    generate_entry_start(registers_client.get_entries)
     generate_record_files(fields, registers_client.get_records)
     generate_record_list(fields, registers_client.get_records)
   end
@@ -123,6 +124,25 @@ class Test < Thor
       csv << EntryFormatters::CSV_HEADER
       entries.each do |e|
         csv << EntryFormatters.entry_csv_row(e)
+      end
+    end
+    FileUtils.mkdir_p('build/entries/start')
+
+    # Identical to 0 offset entries
+    FileUtils.cp('build/entries/index.csv', 'build/entries/start/0.csv')
+    FileUtils.cp('build/entries/index.json', 'build/entries/start/0.json')
+  end
+
+  def generate_entry_start(entries)
+  FileUtils.mkdir_p('build/entries/start')
+  entries.each_with_index do |e, i|
+      remaining_entries = entries.drop_while{|e| e.entry_number <= i}
+      File.write("build/entries/start/#{e.entry_number}.json", remaining_entries.map{|e| EntryFormatters.entry_hash(e)}.to_json )
+      CSV.open("build/entries/start/#{e.entry_number}.csv", 'wb') do |csv|
+        csv << EntryFormatters::CSV_HEADER
+        remaining_entries.each do |e|
+          csv << EntryFormatters.entry_csv_row(e)
+        end
       end
     end
   end
