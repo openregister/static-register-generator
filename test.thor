@@ -3,6 +3,32 @@ require 'in_memory_data_store'
 require 'fileutils'
 require 'csv'
 
+module RecordFormatters
+
+  def self.record_hash(record)
+   {
+     record.entry.key => {
+      'index-entry-number': record.entry.entry_number.to_s,
+      'entry-number': record.entry.entry_number.to_s,
+      'entry-timestamp': record.entry.timestamp,
+      'key': record.entry.key,
+      'item': [
+        record.item.value
+      ]
+     }
+   }
+  end
+
+  def self.record_csv_header(fields)
+    [['index-entry-number','entry-number','entry_timestamp','key'], fields].flatten
+  end
+
+  def self.record_csv_row(fields, record)
+    [[record.entry.entry_number,record.entry.entry_number,record.entry.timestamp,record.entry.key], fields.map{|f| record.item.value[f]}].flatten
+  end
+
+end
+
 class Test < Thor
   def self.file
     return @@file
@@ -18,9 +44,11 @@ class Test < Thor
     fields = registers_client.get_register_definition.item.value['fields']
     generate_item_files(fields, registers_client.get_items)
     generate_entry_files(registers_client.get_entries)
+    generate_record_files(fields, registers_client.get_records)
   end
   
   private
+  
   
   def generate_item_files(fields, items)
     user_items = items.select {|i| i.value[fields.first]}
@@ -33,7 +61,7 @@ class Test < Thor
       end
     end    
   end
-
+  
   def generate_entry_files(entries)
     FileUtils.mkdir_p('build/entries')
     headers = ['index-entry-number', 'entry-number', 'entry-timestamp', 'key', 'item-hash']
@@ -50,14 +78,26 @@ class Test < Thor
       }
     ].to_json
   }
-    entries.each do |e|
-      File.write("build/entries/#{e.entry_number}.json", entry_json.call(e))  
-      CSV.open("build/entries/#{e.entry_number}.csv", "wb") do |csv|
-        csv << headers
-        csv << entry_csv_row.call(e)
+  entries.each do |e|
+    File.write("build/entries/#{e.entry_number}.json", entry_json.call(e))  
+    CSV.open("build/entries/#{e.entry_number}.csv", "wb") do |csv|
+      csv << headers
+      csv << entry_csv_row.call(e)
+    end
+  end    
+end
+
+  def generate_record_files(fields, records)
+    FileUtils.mkdir_p('build/records')
+    records.each do |r|
+      File.write("build/records/#{r.entry.key}.json", RecordFormatters.record_hash(r).to_json)
+      CSV.open("build/records/#{r.entry.key}.csv", 'wb') do |csv|
+        csv << RecordFormatters.record_csv_header(fields)
+        csv << RecordFormatters.record_csv_row(fields, r)
+        end
       end
-    end    
   end
+  
 end
 
 class RegistersClient::RegisterClient
