@@ -29,6 +29,26 @@ module RecordFormatters
 
 end
 
+module EntryFormatters
+  CSV_HEADER = ['index-entry-number', 'entry-number', 'entry-timestamp', 'key', 'item-hash']
+
+  def self.entry_hash(e) {
+      'index-entry-number': e.entry_number.to_s,
+      'entry-number': e.entry_number.to_s,
+      'entry-timestamp': e.timestamp,
+      'key': e.key,
+      'item-hash': [
+        e.item_hash
+      ]
+    }
+  end
+
+  def self.entry_csv_row(e)
+    [e.entry_number, e.entry_number, e.timestamp, e.key, "#{e.item_hash}"] 
+  end
+
+end
+
 class Test < Thor
   def self.file
     return @@file
@@ -44,6 +64,7 @@ class Test < Thor
     fields = registers_client.get_register_definition.item.value['fields']
     generate_item_files(fields, registers_client.get_items)
     generate_entry_files(registers_client.get_entries)
+    generate_entry_list(registers_client.get_entries)
     generate_record_files(fields, registers_client.get_records)
     generate_record_list(fields, registers_client.get_records)
   end
@@ -65,28 +86,14 @@ class Test < Thor
   
   def generate_entry_files(entries)
     FileUtils.mkdir_p('build/entries')
-    headers = ['index-entry-number', 'entry-number', 'entry-timestamp', 'key', 'item-hash']
-    entry_csv_row = lambda { |e| [e.entry_number, e.entry_number, e.timestamp, e.key, "#{e.item_hash}"] }
-    entry_json = lambda { |e| [
-      {
-        'index-entry-number': e.entry_number.to_s,
-        'entry-number': e.entry_number.to_s,
-        'entry-timestamp': e.timestamp,
-        'key': e.key,
-        'item-hash': [
-          e.item_hash
-        ]
-      }
-    ].to_json
-  }
-  entries.each do |e|
-    File.write("build/entries/#{e.entry_number}.json", entry_json.call(e))  
-    CSV.open("build/entries/#{e.entry_number}.csv", "wb") do |csv|
-      csv << headers
-      csv << entry_csv_row.call(e)
-    end
-  end    
-end
+    entries.each do |e|
+      File.write("build/entries/#{e.entry_number}.json", [ EntryFormatters.entry_hash(e) ].to_json)  
+      CSV.open("build/entries/#{e.entry_number}.csv", "wb") do |csv|
+        csv << EntryFormatters::CSV_HEADER
+        csv << EntryFormatters.entry_csv_row(e)
+      end
+    end    
+  end
 
   def generate_record_files(fields, records)
     FileUtils.mkdir_p('build/records')
@@ -106,6 +113,16 @@ end
       csv << RecordFormatters.record_csv_header(fields)
       records.each do |r| 
         csv <<  RecordFormatters.record_csv_row(fields, r)
+      end
+    end
+  end
+
+  def generate_entry_list(entries)
+    File.write('build/entries/index.json', entries.map{|e| EntryFormatters.entry_hash(e)}.to_json )
+    CSV.open('build/entries/index.csv', 'wb') do |csv|
+      csv << EntryFormatters::CSV_HEADER
+      entries.each do |e|
+        csv << EntryFormatters.entry_csv_row(e)
       end
     end
   end
