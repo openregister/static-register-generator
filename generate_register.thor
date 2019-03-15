@@ -4,6 +4,7 @@ require 'fileutils'
 require 'csv'
 require './record_formatters'
 require './entry_formatters'
+require './zip_file_generator'
 
 class GenerateRegister < Thor
 
@@ -14,8 +15,8 @@ class GenerateRegister < Thor
   desc "generate static site", "generate static site from RSF"
   def generate_from_rsf(file)
     @@file = file
-    puts('deleting existing build directory')
-    FileUtils.remove_dir('build') if File.directory?('build')
+
+    FileUtils.remove_dir('build') && puts('deleting existing build directory') if File.directory?('build')
     puts('making new build directory')
     FileUtils.mkdir('build')
     puts "You supplied the file #{file}"
@@ -30,6 +31,7 @@ class GenerateRegister < Thor
     generate_record_entries(fields, registers_client.get_records_with_history)
     generate_register_metadata(registers_client.get_register_definition, registers_client.get_custodian, registers_client.get_records, registers_client.get_entries)
     generate_rsf(registers_client.get_entries, registers_client)
+    generate_archive()
     puts("generated output at #{FileUtils.pwd}/build")
   end
   
@@ -146,6 +148,20 @@ class GenerateRegister < Thor
       rsf = [add_items, append_entries].flatten.join("\n")
       File.write("build/download-rsf/#{e.entry_number}", rsf)
     end
+  end
+
+  def generate_archive
+    tmp_path = 'build/tmp_zip'
+    out_path = 'build/download-register/index.zip'
+    FileUtils.mkdir_p(tmp_path)
+    FileUtils.cp('build/register.json', tmp_path)
+    FileUtils.mkdir_p(tmp_path + '/item')
+    Dir.glob('build/items/*.json'){ |item| FileUtils.cp(item, tmp_path + '/item')}
+    FileUtils.mkdir_p(tmp_path + '/entry')
+    Dir.glob('build/entries/*.json'){ |entry| FileUtils.cp(entry, tmp_path + '/entry') }
+    FileUtils.mkdir_p('build/download-register')
+    ZipFileGenerator.new(tmp_path, out_path).write
+    FileUtils.remove_dir(tmp_path)
   end
 end
 
