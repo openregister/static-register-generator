@@ -3,13 +3,14 @@ require 'in_memory_data_store'
 require 'fileutils'
 require 'csv'
 
-class Test < Thor
+class GenerateRegister < Thor
+  
   def self.file
     return @@file
   end
 
   desc "example FILE", "an example task that does something with a file"
-  def example(file)
+  def generate_from_rsf(file)
     @@file = file
     puts('deleting existing build directory')
     FileUtils.remove_dir('build') if File.directory?('build')
@@ -179,7 +180,7 @@ end
 
 class RegistersClient::RegisterClient
   def register_http_request(path)
-    puts('path is ' + Test.file)
-    File.read(Test.file)
+    puts('path is ' + GenerateRegister.file)
+    File.read(GenerateRegister.file)
   end
 end
