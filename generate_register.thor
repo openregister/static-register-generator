@@ -4,12 +4,12 @@ require 'fileutils'
 require 'csv'
 
 class GenerateRegister < Thor
-  
+
   def self.file
     return @@file
   end
 
-  desc "example FILE", "an example task that does something with a file"
+  desc "generate static site", "generate static site from RSF"
   def generate_from_rsf(file)
     @@file = file
     puts('deleting existing build directory')
@@ -27,6 +27,8 @@ class GenerateRegister < Thor
     generate_record_list(fields, registers_client.get_records)
     generate_record_entries(fields, registers_client.get_records_with_history)
     generate_register_metadata(registers_client.get_register_definition, registers_client.get_custodian, registers_client.get_records, registers_client.get_entries)
+    generate_rsf(registers_client.get_entries, registers_client)
+    puts("generated output at #{FileUtils.pwd}/build")
   end
   
   private
@@ -130,6 +132,19 @@ class GenerateRegister < Thor
     }
     File.write('build/register.json', register_hash.to_json)
   end
+
+  def generate_rsf(entries, client)
+    FileUtils.mkdir_p('build/download-rsf')
+    # RSF 0 is the same as the input file
+    FileUtils.cp(GenerateRegister.file, 'build/download-rsf/0')
+    entries.each_with_index do |e, i|
+      remaining_entries = entries.drop_while{|e| e.entry_number <= i+1}
+      add_items = remaining_entries.map{|re| "add-item\t#{client.get_item(re.item_hash).value.to_json}"}
+      append_entries = remaining_entries.map{|re| "append-entry\tuser\t#{re.key}\t#{re.timestamp}\t#{re.item_hash}"}
+      rsf = [add_items, append_entries].flatten.join("\n")
+      File.write("build/download-rsf/#{e.entry_number}", rsf)
+    end
+  end
 end
 
 module RecordFormatters
@@ -180,7 +195,6 @@ end
 
 class RegistersClient::RegisterClient
   def register_http_request(path)
-    puts('path is ' + GenerateRegister.file)
     File.read(GenerateRegister.file)
   end
 end
