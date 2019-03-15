@@ -1,5 +1,6 @@
 ## Usage
 `bundle install`
+
 `thor generate_register:generate_from_rsf  /path/to/file.rsf` 
 
 ## Licence
