@@ -3,52 +3,6 @@ require 'in_memory_data_store'
 require 'fileutils'
 require 'csv'
 
-module RecordFormatters
-
-  def self.record_hash(record)
-   {
-     record.entry.key => {
-      'index-entry-number': record.entry.entry_number.to_s,
-      'entry-number': record.entry.entry_number.to_s,
-      'entry-timestamp': record.entry.timestamp,
-      'key': record.entry.key,
-      'item': [
-        record.item.value
-      ]
-     }
-    }
-  end
-
-  def self.record_csv_header(fields)
-    [['index-entry-number','entry-number','entry_timestamp','key'], fields].flatten
-  end
-
-  def self.record_csv_row(fields, record)
-    [[record.entry.entry_number,record.entry.entry_number,record.entry.timestamp,record.entry.key], fields.map{|f| record.item.value[f]}].flatten
-  end
-
-end
-
-module EntryFormatters
-  CSV_HEADER = ['index-entry-number', 'entry-number', 'entry-timestamp', 'key', 'item-hash']
-
-  def self.entry_hash(e) {
-      'index-entry-number': e.entry_number.to_s,
-      'entry-number': e.entry_number.to_s,
-      'entry-timestamp': e.timestamp,
-      'key': e.key,
-      'item-hash': [
-        e.item_hash
-      ]
-    }
-  end
-
-  def self.entry_csv_row(e)
-    [e.entry_number, e.entry_number, e.timestamp, e.key, "#{e.item_hash}"] 
-  end
-
-end
-
 class Test < Thor
   def self.file
     return @@file
@@ -59,16 +13,19 @@ class Test < Thor
     @@file = file
     puts('deleting existing build directory')
     FileUtils.remove_dir('build') if File.directory?('build')
+    puts('making new build directory')
+    FileUtils.mkdir('build')
     puts "You supplied the file #{file}"
     registers_client = RegistersClient::RegisterClient.new(nil, RegistersClient::InMemoryDataStore.new({page_size: 5000}), nil)
     fields = registers_client.get_register_definition.item.value['fields']
     generate_item_files(fields, registers_client.get_items)
     generate_entry_files(registers_client.get_entries)
     generate_entry_list(registers_client.get_entries)
-    generate_entry_start(registers_client.get_entries)
+    generate_entry_slices(registers_client.get_entries)
     generate_record_files(fields, registers_client.get_records)
     generate_record_list(fields, registers_client.get_records)
     generate_record_entries(fields, registers_client.get_records_with_history)
+    generate_register_metadata(registers_client.get_register_definition, registers_client.get_custodian, registers_client.get_records, registers_client.get_entries)
   end
   
   private
@@ -134,7 +91,7 @@ class Test < Thor
     FileUtils.cp('build/entries/index.json', 'build/entries/start/0.json')
   end
 
-  def generate_entry_start(entries)
+  def generate_entry_slices(entries)
   FileUtils.mkdir_p('build/entries/start')
   entries.each_with_index do |e, i|
       remaining_entries = entries.drop_while{|e| e.entry_number <= i}
@@ -160,6 +117,64 @@ class Test < Thor
       end
     end
   end
+
+  def generate_register_metadata(register_definition, custodian, records, entries)
+    register_hash = {
+      'domain' => 'register.gov.uk',
+      'total-records' => records.count,
+      'total-entries' => entries.count,
+      'register-record' => register_definition.item.value,
+      'custodian' => custodian.item.value['custodian'],
+      'last-updated' => entries.to_a.reverse[0].timestamp
+    }
+    File.write('build/register.json', register_hash.to_json)
+  end
+end
+
+module RecordFormatters
+
+  def self.record_hash(record)
+   {
+     record.entry.key => {
+      'index-entry-number': record.entry.entry_number.to_s,
+      'entry-number': record.entry.entry_number.to_s,
+      'entry-timestamp': record.entry.timestamp,
+      'key': record.entry.key,
+      'item': [
+        record.item.value
+      ]
+     }
+    }
+  end
+
+  def self.record_csv_header(fields)
+    [['index-entry-number','entry-number','entry_timestamp','key'], fields].flatten
+  end
+
+  def self.record_csv_row(fields, record)
+    [[record.entry.entry_number,record.entry.entry_number,record.entry.timestamp,record.entry.key], fields.map{|f| record.item.value[f]}].flatten
+  end
+
+end
+
+module EntryFormatters
+  CSV_HEADER = ['index-entry-number', 'entry-number', 'entry-timestamp', 'key', 'item-hash']
+
+  def self.entry_hash(e) {
+      'index-entry-number': e.entry_number.to_s,
+      'entry-number': e.entry_number.to_s,
+      'entry-timestamp': e.timestamp,
+      'key': e.key,
+      'item-hash': [
+        e.item_hash
+      ]
+    }
+  end
+
+  def self.entry_csv_row(e)
+    [e.entry_number, e.entry_number, e.timestamp, e.key, "#{e.item_hash}"] 
+  end
+
 end
 
 class RegistersClient::RegisterClient
