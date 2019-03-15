@@ -68,6 +68,7 @@ class Test < Thor
     generate_entry_start(registers_client.get_entries)
     generate_record_files(fields, registers_client.get_records)
     generate_record_list(fields, registers_client.get_records)
+    generate_record_entries(fields, registers_client.get_records_with_history)
   end
   
   private
@@ -147,6 +148,18 @@ class Test < Thor
     end
   end
 
+  def generate_record_entries(fields, records_with_history)
+    records_with_history.each do |rwh|
+      FileUtils.mkdir_p("build/records/#{rwh[:key]}")
+      File.write("build/records/#{rwh[:key]}/entries.json", rwh[:records].map{|r| EntryFormatters.entry_hash(r.entry)}.to_json )
+      CSV.open("build/records/#{rwh[:key]}/entries.csv", 'wb') do |csv|
+        csv << EntryFormatters::CSV_HEADER
+        rwh[:records].each do |r|
+            csv << EntryFormatters.entry_csv_row(r.entry) 
+        end
+      end
+    end
+  end
 end
 
 class RegistersClient::RegisterClient
