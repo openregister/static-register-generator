@@ -2,6 +2,8 @@ require 'register_client'
 require 'in_memory_data_store'
 require 'fileutils'
 require 'csv'
+require './record_formatters'
+require './entry_formatters'
 
 class GenerateRegister < Thor
 
@@ -145,52 +147,6 @@ class GenerateRegister < Thor
       File.write("build/download-rsf/#{e.entry_number}", rsf)
     end
   end
-end
-
-module RecordFormatters
-
-  def self.record_hash(record)
-   {
-     record.entry.key => {
-      'index-entry-number': record.entry.entry_number.to_s,
-      'entry-number': record.entry.entry_number.to_s,
-      'entry-timestamp': record.entry.timestamp,
-      'key': record.entry.key,
-      'item': [
-        record.item.value
-      ]
-     }
-    }
-  end
-
-  def self.record_csv_header(fields)
-    [['index-entry-number','entry-number','entry_timestamp','key'], fields].flatten
-  end
-
-  def self.record_csv_row(fields, record)
-    [[record.entry.entry_number,record.entry.entry_number,record.entry.timestamp,record.entry.key], fields.map{|f| record.item.value[f]}].flatten
-  end
-
-end
-
-module EntryFormatters
-  CSV_HEADER = ['index-entry-number', 'entry-number', 'entry-timestamp', 'key', 'item-hash']
-
-  def self.entry_hash(e) {
-      'index-entry-number': e.entry_number.to_s,
-      'entry-number': e.entry_number.to_s,
-      'entry-timestamp': e.timestamp,
-      'key': e.key,
-      'item-hash': [
-        e.item_hash
-      ]
-    }
-  end
-
-  def self.entry_csv_row(e)
-    [e.entry_number, e.entry_number, e.timestamp, e.key, "#{e.item_hash}"] 
-  end
-
 end
 
 class RegistersClient::RegisterClient
