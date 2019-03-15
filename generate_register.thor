@@ -128,7 +128,7 @@ class GenerateRegister < Thor
       'total-entries' => entries.count,
       'register-record' => register_definition.item.value,
       'custodian' => custodian.item.value['custodian'],
-      'last-updated' => entries.to_a.reverse[0].timestamp
+      'last-updated' => entries.reverse_each.first.timestamp
     }
     File.write('build/register.json', register_hash.to_json)
   end
